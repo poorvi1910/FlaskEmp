@@ -1,10 +1,17 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
+from pydantic import BaseModel, Field, EmailStr, ValidationError
 
 app=Flask(__name__)
 client=MongoClient('mongodb://localhost:27017/')
 db=client['employeedb']
 collection=db['employees']
+
+class EmployeeSchema(BaseModel):
+    empid: int
+    name: str
+    email: EmailStr
+    pword: str=Field(min_length=6, description="Password must be at least 6 characters long")
 
 def format_employee(employee):
     employee['_id']=str(employee['_id'])
@@ -28,23 +35,31 @@ def get_employees():
 @app.route('/api/employee',methods=['POST'])
 def add_employees():
     data=request.json
-    if isinstance(data, list):
-        collection.insert_many(data)
-    else:
-        collection.insert_one(data)
-    return jsonify({'message': 'Employee data inserted'})
+    try:
+        if isinstance(data, list):
+            employees = [EmployeeSchema(**emp) for emp in data]
+            collection.insert_many([emp.dict() for emp in employees])
+        else:
+            employee = EmployeeSchema(**data) 
+            collection.insert_one(employee.dict())
+        return jsonify({'message': 'Employee data inserted'})
+    except ValidationError as e:
+        return jsonify({'error': e.errors()}), 400
 
 @app.route('/api/employee',methods=['PUT'])
 def update_employee():
     empid=request.args.get('empid')
     data=request.json
-
-    if empid:
-        result=collection.update_one({'empid': int(empid)},{'$set': data})
-        if result.matched_count:
-            return jsonify({"message": "Employee details updated"}), 200
-        return jsonify({'error': 'Employee not found'}), 404
-    return jsonify({'error': 'Empid missing'}), 400
+    try:
+        if empid:
+            employee = EmployeeSchema(**data) 
+            result=collection.update_one({'empid': int(empid)},{'$set': employee.dict()})
+            if result.matched_count:
+                return jsonify({"message": "Employee details updated"}), 200
+            return jsonify({'error': 'Employee not found'}), 404
+        return jsonify({'error': 'Empid missing'}), 400
+    except ValidationError as e:
+        return jsonify({'error': e.errors()}), 400
 
 @app.route('/api/employee', methods=['DELETE'])
 def delete_employee():
