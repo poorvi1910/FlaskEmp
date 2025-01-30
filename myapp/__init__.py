@@ -10,7 +10,7 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
     
     jwt = JWTManager(app)
-    Talisman(app)
+    Talisman(app,force_https=False)
     
     from myapp.api import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
