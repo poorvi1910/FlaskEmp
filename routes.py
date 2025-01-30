@@ -2,6 +2,8 @@ from flask import request, jsonify
 from pymongo import MongoClient
 from schema import EmployeeSchema
 from pydantic import ValidationError
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 client = MongoClient('mongodb://localhost:27017/')
 db = client['employeedb']
@@ -13,7 +15,14 @@ def format_employee(employee):
 
 def api_routes(app):
 
+    limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    )
+
     @app.route('/api/employee', methods=['GET'])
+    @limiter.limit("5 per minute")
     def get_employees():
         empid = request.args.get('empid')
         if empid:
@@ -28,6 +37,7 @@ def api_routes(app):
             return jsonify({'error': 'No employees found'}), 404
 
     @app.route('/api/employee', methods=['POST'])
+    @limiter.limit("5 per minute")
     def add_employees():
         data = request.json
         try:
@@ -42,6 +52,7 @@ def api_routes(app):
             return jsonify({'error': e.errors()}), 400
 
     @app.route('/api/employee', methods=['PUT'])
+    @limiter.limit("5 per minute")
     def update_employee():
         empid = request.args.get('empid')
         data = request.json
@@ -57,6 +68,7 @@ def api_routes(app):
             return jsonify({'error': e.errors()}), 400
 
     @app.route('/api/employee', methods=['DELETE'])
+    @limiter.limit("5 per minute")
     def delete_employee():
         empid = request.args.get('empid')
         if empid:
