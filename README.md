@@ -50,6 +50,7 @@ https://pypi.org/project/flask-talisman/<br>
 
 9. Secure Your API with JWT
 https://flask-jwt-extended.readthedocs.io/en/stable/
+https://flask-jwt-extended.readthedocs.io/en/stable/blocklist_and_token_revoking.html
 
 **Not within the scope of this project:**
 1. WSGI server: WSGI stands for Web Server Gateway Interface. It's a standard interface that allows web servers to communicate with Python web applications. WSGI is used to forward requests from a web server to a Python web application, and then pass the response back to the web server. 
