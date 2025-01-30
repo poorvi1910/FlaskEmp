@@ -1,19 +1,22 @@
-from flask import request, jsonify
+from flask import request, jsonify, make_response
 from pymongo import MongoClient
 from schema import EmployeeSchema
 from pydantic import ValidationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, unset_jwt_cookies
 
 client = MongoClient('mongodb://localhost:27017/')
 db = client['employeedb']
 collection = db['employees']
 
+revoked_tokens = set() #Though this will be reset everytime app is rerun. should probably store in database
+
 def format_employee(employee):
     employee['_id'] = str(employee['_id'])
     return employee
 
-def api_routes(app):
+def api_routes(app, jwt):
 
     limiter = Limiter(
     get_remote_address,
@@ -21,8 +24,21 @@ def api_routes(app):
     default_limits=["200 per day", "50 per hour"],
     )
 
+    @app.route('/api/login', methods=['POST'])
+    def login():
+        data = request.json
+        username = data.get('username', None)
+        password = data.get('password', None)
+
+        if username == 'admin' and password == 'admin': # Hardcoded for now, in real time stronger and more secured creds must be used
+            access_token = create_access_token(identity=username)
+            return jsonify(access_token=access_token), 200
+
+        return jsonify({"error": "Invalid credentials"}), 401
+
     @app.route('/api/employee', methods=['GET'])
     @limiter.limit("5 per minute")
+    @jwt_required()
     def get_employees():
         empid = request.args.get('empid')
         if empid:
@@ -38,6 +54,7 @@ def api_routes(app):
 
     @app.route('/api/employee', methods=['POST'])
     @limiter.limit("5 per minute")
+    @jwt_required()
     def add_employees():
         data = request.json
         try:
@@ -53,6 +70,7 @@ def api_routes(app):
 
     @app.route('/api/employee', methods=['PUT'])
     @limiter.limit("5 per minute")
+    @jwt_required()
     def update_employee():
         empid = request.args.get('empid')
         data = request.json
@@ -69,6 +87,7 @@ def api_routes(app):
 
     @app.route('/api/employee', methods=['DELETE'])
     @limiter.limit("5 per minute")
+    @jwt_required()
     def delete_employee():
         empid = request.args.get('empid')
         if empid:
@@ -77,3 +96,16 @@ def api_routes(app):
                 return jsonify({"message": "Employee deleted"}), 200
             return jsonify({'error': 'Employee not found'}), 404
         return jsonify({'error': 'Empid missing'}), 400
+    
+    @jwt.token_in_blocklist_loader
+    def check_if_token_revoked(jwt_header, jwt_data):
+        return jwt_data['sub'] in revoked_tokens
+
+    @app.route('/api/logout', methods=['POST'])
+    @jwt_required()
+    def logout():
+        current_user = get_jwt_identity()
+        revoked_tokens.add(current_user)
+        response = make_response(jsonify(msg="Successfully logged out"), 200)
+        unset_jwt_cookies(response)
+        return response
