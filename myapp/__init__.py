@@ -12,7 +12,6 @@ def create_app():
     jwt = JWTManager(app)
     Talisman(app)
     
-    # Register blueprints
     from myapp.api import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
     

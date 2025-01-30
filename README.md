@@ -10,6 +10,11 @@ Flask CRUD app using REST API and MongoDB
      - [Take aways](#take-aways)
 3. [Not within the scope of this project](#not-within-the-scope-of-this-project)
 
+## Prerequisites
+
+- Docker
+- Docker Compose
+
 ## Setting up
 
 
